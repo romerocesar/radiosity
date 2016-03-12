@@ -1,0 +1,42 @@
+Este documento pretende explicar lo implementado hasta la segunda
+entrega del proyecto de computacion grafica 2 por:
+
+Julio Castillo 02-34745
+Cesar Romero   02-35409
+
+Hasta ahora no nos hemos salido de lo explicado en el primer informe y
+hemos logrado implementar satisfactoriamente los siguientes puntos:
+
+- Representacion del mundo: Implementado en c++ usando la libreria
+  disponible en la pagina oficial de la caja de cornell
+
+- Partitioning: Implementado usando la estrategia descrita en el
+  primer informe. Cada shape es subdividido recursivamente hasta
+  obtener patches con un tamano minimo previamente
+  establecido. Actualmente los patches son relativamente grandes lo
+  que influye en la imagen final donde se aprecian ciertos
+  "artefactos"
+
+- Form Factor Calculation: Implementado usando la tecnica descrita en
+  el informe inicial. Falta mejorar el calculo de la visibilidad que
+  actualmente solamente considera en cierta forma la "ubicacion" de
+  los patches pero no la oclusion parcial por shapes intermedios.
+
+- Radiosity: Implementado como se dijo en el informe. Tomando 3 bandas
+  de colores (RGB).
+
+- Rendering: Cada patch se renderiza con un color uniforme proveniente
+  de el calculo del radiosity interpolando linealmente entre 0 y 1
+  cada banda. 
+
+Las mejoras a futuro incluyen: Hacer una interpolacion no lineal de
+los datos obtenidos del radiosity. Disminuir el tamano de los
+patches. Mejorar el calculo de la visibilidad para tomar en cuenta
+oclusion parcial.
+
+Para correlo:
+$ make
+$ ./main
+
+Esto lee la escena del archivo, crea los patches, calcula los form
+factors y el radiosity y abre una ventana con la imagen final.

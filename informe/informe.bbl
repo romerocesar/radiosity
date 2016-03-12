@@ -1,0 +1,30 @@
+\begin{thebibliography}{1}
+
+\bibitem{cornellbox}
+Wikipedia.
+\newblock Cornell box.
+\newblock Disponible en \url{http://en.wikipedia.org/wiki/Cornell_Box}.
+
+\bibitem{radiosity}
+Wikipedia.
+\newblock Radiosity.
+\newblock Disponible en \url{http://en.wikipedia.org/wiki/Radiosity}.
+
+\bibitem{mdla}
+Cornell University~Program of~Computer~Graphics.
+\newblock The {MDL} file format.
+\newblock Disponible en
+  \url{http://local.wasp.uwa.edu.au/~pbourke/dataformats/mdl/}.
+
+\bibitem{cornellboxdata}
+Cornell University~Program of~Computer~Graphics.
+\newblock Cornell box data.
+\newblock Disponible en
+  \url{http://www.graphics.cornell.edu/online/box/data.html}.
+
+\bibitem{ggems3}
+David Kirk.
+\newblock {\em Graphics Gems III}.
+\newblock Academic Press, Inc., Orlando, FL, USA, 1992.
+
+\end{thebibliography}

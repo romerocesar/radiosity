@@ -1,0 +1,6 @@
+mdlflA20
+
+sphr "red sphere" 
+   lmbrtn rgb 0.8 0.2 0.2 end end
+   0.0 0.0 0.0 1.0
+end

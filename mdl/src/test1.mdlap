@@ -1,0 +1,58 @@
+mdlflA20
+[This is a simple mesh]
+msh "Mesh name"
+  mtrlNm "material" end
+  vrtxPstn
+    0.29681 0.26616 0.23413
+    0.20016 0.16454 0.12683
+    0.20003 0.16449 0.12684
+    0.08704 0.04479 0.0
+  end
+  vrtxNrml
+    0.29681 0.26616 0.23413
+    % stuff stuff
+    0.20016 0.16454 0.12683
+    0.20003 0.16449 0.12684
+    0.08704 0.04479 0.0
+  end
+  trngl 1 2 3 4 3 2 end
+end
+weirdobj end
+[  This one is commented out
+msh
+  "Mesh name" "material" "emission name"
+  vrtx_pst
+    0.29681 0.26616 0.23413
+    0.20016 0.16454 0.12683
+    0.20003 0.16449 0.12684
+    0.08704 0.04479 0.00000
+  end
+  vrtx_nrm
+    0.29681 0.26616 0.23413 % stuff stuff
+    0.20016 0.16454 0.12683
+    0.20003 0.16449 0.12684
+    0.08704 0.04479 0.00000
+  end
+end
+
+]
+nmdMtrl "Lambert"
+  lmbrtn
+    rgb 0.1 0.2 0.3 end
+  end
+end
+nmdMtrl "Oren"
+  ornnyr
+    rgb 0.1 0.2 0.3 end
+    sclr 0.5 end
+  end
+end
+nmdMtrl "Fresnel"
+  pDlctrc
+    rgb 0.1 0.4 0.2 end
+    sclr 1.3 end
+    sclr 10000.0 end
+  end
+end
+weird 3 4 end
+% a comment

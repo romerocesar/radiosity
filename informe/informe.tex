@@ -1,0 +1,325 @@
+\documentclass[letterpaper]{article}
+\usepackage{amsmath,amssymb,amsfonts,textcomp}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[right=2.5cm, left=2.5cm, top=2.5cm, bottom=2.5cm]{geometry}
+\usepackage{enumerate}
+\usepackage{nicefrac}
+\usepackage{setspace}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{graphicx}
+
+\onehalfspacing
+
+\title{{\bf Radiosity} \\ \large Computación Gráfica II}
+\author{Julio C. Castillo 02--34745 \\ César Romero 02--35409}
+\date{30 de Enero de 2007}
+
+\begin{document}
+
+%\allowdisplaybreaks
+\maketitle
+\begin{abstract}
+Durante el desarrollo de este proyecto se pretende renderizar la Caja
+de Cornell\cite{cornellbox} utilizando nuestra propia implementación
+de Radiosity\cite{radiosity}. En este informe se ecuentran detalles de
+la implementación que abarcan desde la representación del mundo que
+utilizamos hasta la técnica que usamos para hacer el renderizado de la
+imagen.
+\end{abstract}
+
+\section{Representación del Mundo}
+Antes de poder hacer el cómputo necesario para crear una imagen de la
+escena que queremos reproducir, es necesario tener claro como se
+modelará el mundo sobre el cual se realizarán los cálculos. A
+continuación explicamos con detalle nuestra representación tanto en el
+archivo de entrada (del cual serán leídos los datos), como en memoria
+(sobre los cuales se realizarán los cálculos)
+
+\subsection{El archivo: Formato MDLA}
+\label{sec:mdla}
+Para la especificación del archivo de entrada se utilizará el formato
+MDLA\cite{mdla}, un formato definido conjuntamente por la Universidad
+de Cornell y la Universidad de Indiana. Según los autores, el objetivo
+de este formato era crear una forma simple, práctica y rápida de
+almacenar modelos de escenas.
+
+Se decidió utilizar este formato porque ya existe una especificación
+de la Caja de Cornell en este formato. Adicionalmente, está disponible
+libremente una librería en C++ que permite leer este tipo de archivos
+de manera sencilla.
+
+Es importante destacar que la especificación de la Caja de Cornell
+disponible en~\cite{cornellboxdata} define los colores de los
+materiales tomando 76 longitudes de onda del espectro visible. En este
+proyecto, las longitudes de onda disponibles en la especificación
+original serán sustituidas por una tripleta RGB que aproxime al color
+en cuestión.
+
+\subsection{Estructura en memoria}
+Para representar el ``mundo'' en memoria se utilizara una lista de
+\texttt{Shape}s. Cada \texttt{Shape} contiene la toda la informacion
+relacionada con una superficie de la escena:
+\begin{itemize}
+\item Un arreglo de 4 puntos que representan los vertieces de la superficie.
+\item Un vector normal a la superficie.
+\item El color  o material de la superfice.
+\item Un arreglo con los \textsl{patches} que se generan durante la fase de
+  particionamiento.
+\end{itemize}
+
+\begin{minipage}[c]{0.5\linewidth}
+\begin{lstlisting}[language=C++,frame=single,caption=Representación básica del modelo]
+typedef float Vector[3]; 
+typedef Vector Point;
+typedef Vector Color;
+typedef Point Quad[4];
+
+struct Shape{
+  Point vertices[4];
+  Vector normal;
+  Color color;
+  Quad *patches;
+
+  float area();
+};
+
+struct Scene{
+  vector<Shape> shape;
+};
+\end{lstlisting}
+\end{minipage}
+
+El hecho de tener un método para calcular el área y un vector normal
+al plano que conforma el {\em Shape} facilita la implementación del
+particionamiento y el cálculo de los \textsl{form-factors} que serán
+explicados con mayor detalle en las secciones \ref{sec:part} y
+\ref{sec:ff} respectivamente.
+
+\section{Particionamiento}
+\label{sec:part}
+Para simplificar la implementación, todos los \textsl{patches} serán
+cuadriláteros y serán calculados subdividiendo cada \texttt{Shape}
+hasta que cada \textsl{patch} tenga un área máxima que aún está por
+ser determinada.
+
+\begin{figure}[htbp]
+  \centering
+  \input{part.pstex_t}
+  \caption{Particionamiento de un cuadrilátero en 2D}
+  \label{fig:part}
+\end{figure}
+
+El algoritmo de particionamiento que se va a utilizar fue tomado de
+\cite{ggems3}, que dado un cuadrilátero, lo divide en cuatro secciones
+de igual área tal como se observa en la figura~\ref{fig:part}. La
+manera de hacer esto es simplemente promediar las coordenadas de las
+esquinas para obtener el punto central y simultaneámente ir calculando
+el punto medio entre cada par de vértices. Con esta información es
+posible generar los cuatro nuevos cuadriláteros. A continuación se
+muestra el pseudocódigo de este algoritmo.
+\pagebreak
+\begin{lstlisting}[language=pascal,caption=Algoritmo de subdivisión de un cuadrilátero,frame=single,mathescape=True]
+procedure splitQuad(q: Quad, var q0,q1,q2,q3: Quad) 
+begin
+  { calcula el centro y los 4 puntos intermedios entre esquinas }
+  center $\leftarrow$  (q[0] + q[1] + q[2] + q[3]) / 4
+  mid0 $\leftarrow$ (q[0] + q[1]) / 2
+  mid1 $\leftarrow$ (q[1] + q[2]) / 2
+  mid2 $\leftarrow$ (q[2] + q[3]) / 2
+  mid3 $\leftarrow$ (q[3] + q[0]) / 2
+
+  { construye los 4 nuevos cuadrilateros }
+  q0 $\leftarrow$ (q[0], mid0, center, mid3)
+  q1 $\leftarrow$ (q[1], mid1, center, mid0)
+  q2 $\leftarrow$ (q[2], mid2, center, mid1)
+  q3 $\leftarrow$ (q[3], mid3, center, mid2)
+end
+\end{lstlisting}
+ 
+Las primeras pruebas, sin embargo, serán realizadas utilizando patches
+del mismo tamaño que el \texttt{Shape} para poder obtener resultados
+rápidos y menos propensos a fallas.
+
+\section{Cómputo de los \textsl{Form-Factor}}
+\label{sec:ff}
+Para hacer el cómputo de los \textsl{form-factors} se usará un
+algoritmo escrito por Filippo Tampieri extraído de~\cite{ggems3}. Este
+algoritmo está implementado en C y el cálculo que realiza garantiza
+ser muy preciso.
+
+Como se explicó en la sección \ref{sec:part}, para cada subregión del
+patch, si esta tiene un área menor que un $\Delta A_r$ definido,
+entonces se divide el cuadrilátero en 4 subregiones y se computa
+recursivamente el \textsl{form-factor} de cada una. Subdividiendo el
+patch receptor en areas cada vez más pequeñas $\Delta A_j$ y
+utilizando diferentes aproximaciones constantes de la visibilidad $v$
+para cada $\Delta A_j$, la función de visibilidad puede ser aproximada
+a cualquier grado de precisión \cite{ggems3}. Así, la contribución de
+la fuente $s$ al punto $x$ es
+$$\Delta B_r(x)=\rho_rB_s\sum_{j=1}^m(V_jF_{dA_r(x)\rightarrow\Delta A_j}),$$
+donde $V_j$ es la fracción de $\Delta A_j$ visible desde $x$.
+
+En la implementación de Tampieri \cite{ggems3} esta función de
+visibilidad es externa de manera tal que se adapte a la representación
+particular del ``mundo''. El siguiente pseudocódigo muestra el
+algoritmo recursivo para computar $\Delta B_r$ que será utilizado en
+nuestra implementación
+
+%   $\Delta B_r\leftarrow$ComputeContribution(r(x),s,$\epsilon_B$,$\epsilon_A$);
+%   ComputeContribution(r(x),s,$\epsilon_B$,$\epsilon_j$)
+%    if CanCull(r(x),s)
+%     then return 0;
+%     else begin
+%      $\epsilon_F\leftarrow\epsilon_B/(\rho_rB_s);$
+%      return $\rho_rB_s\cdot$ComputeFormFactor(r(x),s,$\epsilon_F$,$\epsilon_A$);
+%      end;
+
+\pagebreak{}
+\begin{lstlisting}[language=Pascal,frame=single,caption=Cómputo de form-factors,mathescape=True]
+
+  ComputeFormFactor(r(x),s,$\epsilon_F$,$\epsilon_A$)
+   begin 
+   V$\leftarrow$ComputeVisibilityFactor(r(x),s);
+   if V$\leq$0
+    then return 0;
+   else if V$\geq$1
+    then begin
+      $F_{dA_r\rightarrow A_s}\leftarrow$ComputeUnoccludedFormFactor(r(x),s);
+      return $F_{dA_r\rightarrow A_s}$;
+      end;
+   else begin
+      $F_{dA_r\rightarrow A_s}\leftarrow$ComputeUnoccludedFormFactor(r(x),s);
+      if $F_{dA_r\rightarrow A_s}\leq\epsilon_F\;$or$\;A_s\leq\epsilon_A$
+        then return $VF_{dA_r\rightarrow A_s}$;
+      else begin
+        $(s_1,s_2,...,s_m)\leftarrow$SplitPatch(s);
+        return $\sum_{j=1}^m$ComputeFormFactor(r(x),$s_j$,$\epsilon_F$,$\epsilon_A$);
+        end;
+      end;
+   end;
+\end{lstlisting}
+
+\subsection{Visibilidad}
+\label{sec:vis}
+
+Inicialmente la visibilidad se hará tomando en cuenta los vectores
+normales a las superficies que contienen cada uno de estos puntos. El
+ángulo que se forma entre estos dos vectores nos da un estimado
+inicial de la visibilidad que buscamos.
+
+Otra manera de realizar el cálculo de la visibilidad es usando OpenGL
+directamente. Si a cada \textsl{patch} le asignamos un número unívoco
+y este lo interpretamos como un color en la imagen, es posible
+determinar que \textsl{patches} son visibles consultando el z-buffer
+de OpenGL y cambiando el punto de vista del observador. Ésta técnica
+es mas robusta con respecto a la oclusión por otras superficies
+presentes en la escena. Si bien es más compleja de implementar (por
+como se manejan las estructuras de dato) esperamos poder aplicarla en
+nuestro proyecto.
+
+% TODO ver que es la vaina de los form-factors precomputados que dijo
+% dionisio
+
+\section{Radiosity}
+\label{sec:rad}
+Para el cómputo de la solución de radiosidad de cada \textsl{patch} de
+la escena se utilizará el método de refinamiento progresivo
+desrrollado por Cohen \cite{cohen} tal como se describe por Watt \&
+Watt \cite{Watt92}. Este método inicia asignando a cada \texttt{patch}
+un valor de radiosidad igual a cero o a su valor de
+emisividad. Posteriomente se comienza a actualizar las radiocidades de
+los patches utilizando el algoritmo que se muestra a continuación.
+\pagebreak{}
+\begin{lstlisting}[language=pascal,frame=single,mathescape=True]
+repeat 
+  for each patch $i$
+  begin
+    Calcular los form-factors de $i$ con el resto de los patches
+    for each patch $j \quad (j \neq i)$
+    begin
+      $\Delta Rad \leftarrow \rho_j \Delta B_i F_{ij}A_i/A_j$
+      $\Delta B_j \leftarrow \Delta B_j + \Delta Rad$
+      $B_j \leftarrow B_j + \Delta Rad$
+    end;   
+    $\Delta B_i \leftarrow 0$
+  end;
+until convergence;
+\end{lstlisting}
+
+Cohen llama a esta técina ``\textsl{shooting}'' puesto que la
+contribución del \textsl{patch} $i$ es distribuida a todos los demás
+\textsl{patches} de la escena\footnote{La técnica tradicional de
+  resolución por medio de Gauss-Seidel se conoce como
+  ``\textsl{gathering}'' pues se puede interpretar como si calculara
+  la contribucion de todos los \textsl{patches} del la escena al
+  \textsl{patch} $i$.}. Esta actualización global, permite ir dibujando
+la imagen en cada iteración; la idea es que a medida que se va a
+avanzando, la calidad y correctitud de la escena va mejorando.
+
+Otro aspecto a considerar del cálculo de radiosidad es que éste debe
+realizarce para cada banda de color.  En particular, a mayor número de
+bandas de color, mejor resultado se obtiene. Es por esto que la
+implementación de la Universidad de Cornell toma en cuenta un total
+de 76 bandas de colores. 
+
+Los \textsl{form-factos} también dependen de la longitud de onda, sin
+embargo, esta consideración se omite para simplificar la
+implementacion. Por lo tantno, para el cálculo de radiosidad en cada
+banda se pueden usar los mismo \textsl{form-factors}.
+
+En nuestra implementación tomaremos un total de 3 bandas: rojo, verde
+y azul. Las pruebas iniciales se realizarán tomando sólo una banda y
+por lo tanto generará una imagen en tonos de grises. Esto es para poder
+observar más rapidamente los resultados de la implementación y luego
+ampliarla para tomar en cuenta los otras bandas.
+
+\section{Renderizado}
+\label{sec:render}
+La solución de radiosity nos da un valor constante para todo el
+\textsl{patch}. Con un renderer normal, sin embargo, necesitariamos
+los valores para cada vértice de la superficie. Estos los podemos
+obtener calculando el promedio de las radiosidades de las subregiones
+vecinas \cite{Watt92,cohen85}.
+
+La solución de radiosity esta constituida números que toman valores
+reales. Estos deben ser escalados a un número entre 0 y 255 para poder
+introducirlos en OpenGL. Este escalamiento se debe realizar con una
+función sigmoidal \cite{tumblin} porque puede haber valores extremos
+que son muy similares cuando se muestran en pantalla. Lo que se quiere
+es dar mayor relevancia a valores intermedios.
+
+% TODO buscar cita y funcion sigmoidal.
+
+% TODO ver como es el renderizado usando texturas
+
+\section{Asignación del trabajo}
+\label{sec:asig}
+El trabajo será dividido en dos grandes partes tal que los componentes
+que conforman cada una de estas estén relacionados entre si. 
+
+La primera parte consistirá en leer el archivo de entrada, hacer el
+particionamiento y el cómputo de los \textsl{form-factors}. Como
+usaremos una librería para la lectura de los datos (como se indica en
+la sección \ref{sec:mdla}) y el algoritmo de Tampieri explicado en la
+sección \ref{sec:ff}, la complejidad de esta parte es principalmente
+la integración del particionamiento al algoritmo y la implementación
+de una función de visibilidad que pueda ser usada para el cálculo de
+los \textsl{form-factors} sin mayor dificultad.
+
+La segunda parte consistirá en hacer el cálculo de radiosidad una vez
+calculados los \textsl{form-factors} y el renderizado de la
+escena. Para esta parte es necesario realizar la implementación del
+algoritmo de Cohen \cite{cohen} explicado en la sección \ref{sec:rad}
+y realizar los cálculos necesarios para la interpolación de los
+valores de radiosidad de cada \textsl{patch} y el escalamiento de
+dichos valores como se explica en la sección \ref{sec:render}.
+
+No hemos decidido quien estará encargado de cada parte de la
+implementación aún.
+
+\bibliographystyle{unsrt}
+\bibliography{informe}
+
+\end{document}

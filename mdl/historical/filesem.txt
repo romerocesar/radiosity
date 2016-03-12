@@ -1,0 +1,368 @@
+Model File Chunks
+=================
+
+  The MDL (muddle) file format consists of three levels: syntax,
+semantics, and conventions.  The syntax is described in a
+separate document and will only be briefly summarized here.  The main
+purpose of this document is to described the proposed semantics of the
+format and some additional proposed conventions for the ordering of
+information in the format.  This format is designed for expandability
+so you are encouraged to submit suggestions if you have a need for
+semantics beyond those described here.
+
+  The syntax of the file format specifies that each piece of data is 
+stored in one of four basic types: keywords (8 bytes), integers (4 bytes),
+floating point (4 bytes IEEE), and strings (a multiple of 4 bytes).  The
+data is further organized in chunks which are delimited by keywords.
+A file consists of a special keyword followed by zero or more chunks.  
+Chunks can contain both data and nested chunks.
+
+
+Type Legend:	i - integer value
+		f - floating point value
+		s - string
+		C - a chunk
+		(...)* - a group of values repeated zero or more times
+
+Top Level Chunks
+----------------
+
+Chunk: basic mesh with shared vertices
+Keyword: msh		Type: ss(C)*
+TypeDesc: mesh name, material name, vertex and patch lists
+Description: a mesh consists a group of vertices and the connectivity
+  information needed to form patches using these vertices.
+Conventions:  by convention all vertex lists should come before
+  any patch lists.  Also the material name should have been previously
+  defined in this file.  A material name of "" means no material is
+  specified.
+
+Chunk: material definition
+Keyword: mtrl		Type: s(C)*
+TypeDesc: material name followed material describtion chunks
+Description: a material name followed by material lists with
+  potential material definitions.  The reader should use the first
+  such material list which it understands.  Thus the "prefered" material
+  definition should be given first followed by possible substitutes
+  for programs with limited material capabilities.
+Conventions:  a material should always be defined before it is referenced.
+
+Chunk: file header
+Keyword: hdr		Type: ??? (any suggestions?)
+Description: a file header which could list things like format version
+  number, creation date, creator, file comments.  We should figure out
+  what people would like to be here.
+Conventions:  should appear as first object in file, if its used.
+
+Chunk: camera definition
+Keyword: cmr		Type: s(C)*
+TypeDesc: camera name followed by camera describtion chunks
+Description: a camera name followed by potential camera definitions in
+  camera lists.  As with materials, the reader should use the first
+  camera definition which it understands.
+Conventions: the first camera object gives the default camera.
+
+Chunk: image file UV
+Keyword: imgFlUV	Type: sss(C)*
+TypeDesc: texture name, filename to use for texture, image format,
+  followed by optional chunks.
+Description: this object sets up a binding between a texture name and
+  a file pointed to by the filename.  The image format string contains
+  the type of the file (eg "ppm" or "jpeg") or can be empty (ie "").
+  The U,V coordinates should be used to index into the map with
+  0,0 being the (lower left?) corner of the map and 1,1 being the
+  (upper right?) corner.
+Conventions: this object should contain an avrg chunk to define the
+  average value to use if the program cannot handle the texture map.
+
+Object: image data UV
+Keyword: imgDtUV	Type: sii(C)*
+TypeDesc: image name, image width, image height, followed by chunks with
+  actual image data.
+Description: this object provides a way imbed an image directly in the file
+  rather than using a file pointer.  The actual image pixel values will
+  be given in list(s) inside this object.  Otherwise identical to the
+  image file UV chunk.
+Conventions: the first list containing image contents which the program
+  understands should be used for the image contents.
+
+Chunk: background radiance
+Keyword: bckgrnd	Type: (C)*
+TypeDesc: just contains chunks.
+Description: This list gives the background radiance.  That's the radiance
+  that will be see along any ray which does not intersect any geometry
+  in the scene.  The lists contain various possible definitions.  The
+  program should use the first definition which it understands.
+Conventions: Currently only the color chunks are defined for use here.
+
+Chunk: planar mesh with shared vertices
+Keyword: plnrmsh	Type: ss(C)*
+TypeDesc: mesh name, material name, vertex and patch lists
+Description: a planar mesh consists a group of vertices and the connectivity
+  information needed to form patches using these vertices.  The first
+  patch chunk will be a complex polygon chunk which will contain the
+  entire region covered by the planar mesh.  If any other patch chunks exist
+  then they will give a meshing of the complex polgon.
+Conventions:  by convention all vertex lists should come before
+  any patch lists.  Also the material name should have been previously
+  defined in this file.  A material name of "" means no material is
+  specified.
+
+Chunk: list of hit points
+Keyword: htPt		Type: (iii)*
+TypeDesc: the first integer is a surface id.  The next two integers
+  encode four 2 byte fields.  The second integer contains the x coordinate
+  in its high bytes and y in the low bytes.  The third encodes z in its
+  high bytes and wavelength in the low bytes.
+Description: This chunks encodes a series of hit points on surfaces by
+  light particles.  The surfaces in the source file are assigned id's
+  starting from zero in the order in which they occur in the file.  The
+  x,y,z coordinates are unsigned 2 byte integers and are relative to the
+  bounding box of the surface.  For instance the an x value of 0 would
+  correspond to the minimum x value which occurs on that surface and a
+  value of 65535 corresponds to the maximum x value on that surface.  The
+  wavelength is an unsigned 2 byte integer which gives the wavelength of
+  the light particle in nanometers.
+Conventions: usually recorded in a separate file from the source file
+  with the actual geometry.
+
+Vertex Chunks
+--------------------
+note: vertex lists are additive in the sense that each list adds new
+properties to previous vertices.  Thus each vertex list within an
+object should contain the same number of vertices.
+
+Chunk: vertex positions
+Keyword: vrtxPstn	Type: (fff)*
+TypeDesc: position given as x,y,z floating point triples.
+Description: contains the position information for vertices
+Conventions: all mesh objects should contain this chunk and it should
+  precede any other vertex chunks.
+
+Chunk: vertex normals
+Keyword: vrtxNrml	Type: (fff)*
+TypeDesc: normals given as x,y,z floating point triples.
+Description: contains normals at vertices for normal interpolation.
+Conventions: should be normalized but this is not required.
+
+Chunk: vertex U,V coordinates
+Keyword: vrtxUV		Type: (ff)*
+TypeDesc: u,v coordinates as floating point pairs
+Description: gives u,v coordinates for use in texture maps or other
+  2D functions over patches.
+Conventions: (do we want to set the range for u,v (e.g. [0,1))?)
+
+Chunk: vertex irradiance values
+Keyword: vrtxIrrd	Type: (fff)*
+TypeDesc: irradiances given as r,g,b floating point triples
+Description: given vertex irradiance typically from some radiosity
+  solution to be interpolated across faces.
+Conventions: Do we want to allow other color models?  How about units?
+
+Transform Chunks   proposed
+----------------
+
+Chunk: translation
+Keyword: trnsltn          Type: fff
+TypeDesc: x, y, and z translation
+Description: a translation to be applied to the mesh (after any previous
+  transforms).
+Conventions: Has to come before any affected vertex chunks.
+
+Chunk: uniform scale
+Keyword: unfrmscl          Type: f
+TypeDesc: scale factor
+Description: a uniform scaling to be applied to the mesh (after any previous
+  transforms).
+Conventions: Has to come before any affected vertex lists.
+
+Chunk: rotation specified by axis and angle
+Keyword: axsnglrt          Type: ffff
+TypeDesc: x, y, z rotation axis, theta rotation (degrees) about that axis.
+Description: a rotation to be applied to the mesh (after any previous
+  transforms).
+Conventions: Has to come before any affected vertex lists.
+
+Patch Chunks
+------------
+
+Chunk: triangle list
+Keyword: trngl		Type: (iii)*
+TypeDesc: three integer indices into local vertex chunks to define triangles
+Description: a list of triangles
+Conventions:
+
+Chunk: quadrilateral list
+Keyword: qdrltrl	Type: (iiii)*
+TypeDesc: four integer indices into local vertex chunks to define 
+  quadrilaterals
+Description: a list of quadrilaterals
+Conventions: should they be required to be convex or planar?
+
+Chunk: triangle strip
+Keyword: trnglStr	Type: iii(i)*
+TypeDesc: integer indices into local vertex chunks for a triangle strip
+Description: a triangle strip.  each successive triangle shares the
+  two most recent vertices with the preceding triangle.  Faster than
+  triangles on many systems.
+Convections:
+
+Chunk: patch irradiances
+Keyword: ptchIrrd	Type: (fff)*
+TypeDesc: irradiances as r,g,b floating triples.
+Description: defines piecewise constant irradiance values for patches
+  from a piecewise constant radiosity solution.  The patches are defined 
+  in the preceding chunk.
+Conventions: The patch irradiance chunk should appear immediately after the
+  patch chunk to which it applies.  If you want to apply patch irradiances
+  to faces in more than one list, you will need to have several patch
+  irradiance lists (one for each face list).  Do we want other color models?
+
+Chunk: polygon
+Keyword: plygn		Type: iii(i)*
+TypeDesc: integer indices into local vertex chunks
+Description: defines a general polygon.  It need not be convex.
+Conventions: Currently only used in pmsh chunks.
+
+Chunk complex polygon
+Keyword: cmplxPly	Type: C (C)*
+TypeDesc: contains a polygon chunk and then zero or more polygons which
+  are holes in the original polygon.
+Description: defines a general polygon with holes.
+Conventions: Holes should have the reverse orientation compared to the
+  first polygon.  Currently only used in pmsh chunks.
+
+Material Chunks
+---------------
+Note: optional texture maps in general modify attributes of materials.
+The value of the texture map should multiplied by the given attribute
+value to get the effective value.  If a program does not handle texture
+maps, it should use the average value of the texture (if available) or
+ignore the texture map completely.  When texture mapping phong exponents
+the following formula should be used:
+<exponent> = <fixed exponent>*10^(0.0001*<texture value>^2)
+where <texture value> is the 0-255 value from the texture map and 
+<fixed exponent> was the floating point value given in the material.
+
+Chunk: Lambertian
+Keyword: lmbrtn		Type: C(C)*
+TypeDesc: diffuse reflectance as a color chunk.
+  Optional mapping chunk(s) to modify the diffuse reflectance.
+Description: pure Lambertian diffuse reflectance.
+
+Chunk: metal
+Keyword: mtl		Type: Cf(C)*
+TypeDesc: normal reflectance as a color chunk and
+  phong exponent for reflectance spread.  Also optional mapping chunks
+  may be used to modify color and exponent.
+Description: metal, we should probably define the BRDF this represents
+
+Chunk: dielectric
+Keyword: dlctrc		Type: Cff
+TypeDesc: transmittance per unit length as a color chunk, 
+  index of refraction, and phong exponent for spread.
+Description: models transmitting surface. (define BRDF?)
+
+Chunk: polished
+Keyword: plshd		Type: Cff(C)*
+TypeDesc: diffuse reflectance as a color chunk, index
+  of refraction, and phong exponent.  An optional mapping chunks may be
+  used to modify the diffuse reflectance and phong exponent.
+Description: a diffuse surface covered by a clear dialectric polish.
+
+Chunk: utah material model
+Keyword: uth		Type: CCCf(C)*
+TypeDesc: diffuse reflectance as a color chunk, specular reflectance as a
+  color chunk, transmittance as color chunk, phong exponent for specularity
+  and transmittance.  Also optional mapping chunks may be used to modify 
+  diffuse reflectance, specular reflectance, transmittance, and 
+  phong exponent.
+Description: standard computer graphics material hack
+
+Other Chunks
+------------
+
+Chunk: comment
+Keyword: cmnt		Type: (s)*
+TypeDesc: comment strings
+Description: standard place to put comments which you would like to be
+  preserved even in the binary format.
+Convention: (maybe a comment is associated with the chunk which immediately
+  precedes it or the container as a whole if its the first sub-chunk)
+
+Chunk: pinhole camera
+Keyword: pnhl		Type: fff fff fff fffff
+TypeDesc: camera position as x,y,z triple, look at point as x,y,z triple,
+  view up vector as x,y,z triple, virtual screen width, virtual screen
+  height, virtual screen distance, near clipping plane, far clipping plane
+Description: a basic pinhole camera model with near and far clipping planes
+
+Chunk: phong luminaire
+Keyword: phngLmnr   	Type: C f (s)*
+TypeDesc: emitted power per unit area as a color chunk,
+  phong exponent for emitted power distribution.  Also optional mapping
+  chunks may be used to modify the the emitted power and the phong exponent.
+Description: indicates that a material includes emitted light.  The
+  phong exponent gives the power distribution as a function of the angle
+  with the surface normal.  An exponent of 1 indicates a diffuse source.
+Conventions:  readers who can only handle diffuse sources should ignore
+  the exponent.
+
+Chunk: average value
+Keyword: avrg		Type: f(f)*
+TypeDesc: an average value as floating point value(s) to be interpreted in
+  a context dependent way.
+Description: use to give the average value to texture maps.  Currently
+  unused.  We need a better definition for this.
+
+Chunk: constant
+Keyword: cnstnt		Type: f(f)*
+TypeDesc: a constant value as floating point value(s) to be interpreted in
+  a context dependent way.
+Description: use to give a constant value to some specifier.  
+  Currently unused.
+
+Chunk: RGBE (red,green,blue,exponent) data
+Keyword: RGBE		Type: (i)*
+TypeDesc: contains RGBE data with 8 bits for each channel all packed into
+  a 32 bit integer.
+Description: This list provides a way to specify a list of color values
+  in Ward's RGBE format.
+
+Color Chunks
+------------
+
+Chunk: rgb value (red, green, blue)
+Keyword: rgb		Type: fff
+TypeDesc: contains a color as an r,g,b triple
+Description: used to specify colors in the usual (imprecise) rgb color space.
+Conventions: Do we want to specify exact definitions for red, green, and
+  blue colors?
+
+Chunk: spectral color
+Keyword: spctrl		Type: ff (ff)*
+TypeDesc: contains spectral data as wavelength, value pairs.  Wavelength
+  is specified in nanometers.
+Description: used to specify colors by their spectrum.
+Conventions: We use linear interpolation between neighboring color samples.
+
+Mapping Chunks
+--------------
+
+Chunk: reflectance texture map
+Keyword: mpRflctn	Type: si
+TypeDesc: contains name of texture map to use for reflectance.  The integer
+  controls how the texture map interacts with the constant reflectance
+  value specified in the material chunk.  Zero indicates the texture map
+  should be multiplied by the constant value and one indicates the texture
+  map should replace constant reflectance value.
+Description: used to specify texture maps in materials
+
+Chunk: phong exponent texture map
+Keyword: mpExpnnt   	Type: si
+TypeDesc: contains name of texture map to use for reflectance.  The integer
+  controls how the texture map interacts with the constant exponent
+  specified in the material chunk.  Zero indicates the texture map
+  should be multiplied by the constant exponent and one indicates the texture
+  map should replace the constant exponent.
+Description: used to specify texture maps in materials

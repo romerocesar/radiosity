@@ -1,0 +1,9 @@
+mdlflA20
+
+foo
+  "string"
+  "string with 35 characters"
+  "string with 36 characters!"
+  "string with 37 characters!?"
+  "string with 38 characters!?!"
+end

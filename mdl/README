@@ -1,0 +1,12 @@
+This software was written at the Cornell Program of Computer Graphics,
+and is provided as-is.  No support is available, and no guarantees are
+made about its functionality.  To read more about the MDL file format,
+visit:
+
+   www.graphics.cornell.edu/online/formats/mdl
+
+These directories and files were constructed to facilitate implementation
+of this library (and associated commands) on both the HP-UX and IRIX
+operating systems using both the system and gnu compilers.  It should be
+fairly straightforward to extend this functionality to other operating
+systems.  Good luck!
