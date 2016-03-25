@@ -39,4 +39,4 @@ $ make
 $ ./main
 
 Esto lee la escena del archivo, crea los patches, calcula los form
-factors y el radiosity y abre una ventana con la imagen final.
+factors y el radiosity y abre una ventana con la imagen final vamos
